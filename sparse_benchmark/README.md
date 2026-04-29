@@ -194,8 +194,8 @@ Density | NNZ   |  Dense(s) |  AVX2(s) |   CSR(s) | Speedup(AVX2/CSR)
 
 ---
 ## System Specifications
-Processor: AMD Ryzen 9 6900HS
-OS: Linux (Ubunbtu)
+-Processor: AMD Ryzen 9 6900HS
+-OS: Linux (Ubunbtu)
 
 ## Conclusion
 
