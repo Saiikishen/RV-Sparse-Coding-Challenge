@@ -533,6 +533,4 @@ All tests passed! (100/100 iterations passed)
 
 The program returns `0` on full pass, `1` if any iteration fails — suitable for use in CI pipelines or automated test scripts.
 
----
 
-*Solution by Saikishen — RV-Sparse Coding Challenge*
