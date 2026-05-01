@@ -8,18 +8,14 @@
 #define TOL 1e-7
 #define REPEAT 100
 
-// ==============================
 // Timing utility
-// ==============================
 double get_time() {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return ts.tv_sec + ts.tv_nsec * 1e-9;
 }
 
-// ==============================
-// Naive dense multiplication (original)
-// ==============================
+// Naive dense multiplication 
 void dense_multiply(int rows, int cols, const double* A, const double* x, double* y) {
     for (int i = 0; i < rows; i++) {
         double sum = 0.0;
@@ -30,10 +26,8 @@ void dense_multiply(int rows, int cols, const double* A, const double* x, double
     }
 }
 
-// ==============================
+
 // AVX2 + FMA optimized dense multiplication
-// Requires: -mavx2 -mfma (or -march=native)
-// ==============================
 void dense_multiply_avx2(int rows, int cols, const double* A, const double* x, double* y) {
     for (int i = 0; i < rows; i++) {
         __m256d sum0 = _mm256_setzero_pd();
@@ -42,7 +36,7 @@ void dense_multiply_avx2(int rows, int cols, const double* A, const double* x, d
 
         // 8-way unrolled: process 8 doubles per iteration (2 AVX registers)
         for (; j + 7 < cols; j += 8) {
-            // Prefetch next cache line
+            
             _mm_prefetch((const char*)&A[i * cols + j + 16], _MM_HINT_T0);
 
             // Load 8 consecutive elements of A
@@ -58,13 +52,13 @@ void dense_multiply_avx2(int rows, int cols, const double* A, const double* x, d
             sum1 = _mm256_fmadd_pd(a1, x1, sum1);
         }
 
-        // Combine the two accumulators
+    
         sum0 = _mm256_add_pd(sum0, sum1);
         double partial[4];
         _mm256_storeu_pd(partial, sum0);
         double dot = partial[0] + partial[1] + partial[2] + partial[3];
 
-        // Remainder
+        
         for (; j < cols; j++) {
             dot += A[i * cols + j] * x[j];
         }
@@ -73,9 +67,7 @@ void dense_multiply_avx2(int rows, int cols, const double* A, const double* x, d
     }
 }
 
-// ==============================
-// CSR conversion (unchanged)
-// ==============================
+// CSR conversion 
 void dense_to_csr(
     int rows, int cols, const double* A,
     double* values, int* col_idx, int* row_ptr, int* nnz
@@ -98,9 +90,8 @@ void dense_to_csr(
     *nnz = count;
 }
 
-// ==============================
+
 // CSR baseline
-// ==============================
 void csr_multiply(
     int rows,
     const double* values,
@@ -118,9 +109,9 @@ void csr_multiply(
     }
 }
 
-// ==============================
-// CSR with 2-way unrolling (kept for completeness)
-// ==============================
+
+// CSR with 2-way unrolling 
+
 void csr_multiply_optimized(
     int rows,
     const double* values,
@@ -146,9 +137,8 @@ void csr_multiply_optimized(
     }
 }
 
-// ==============================
-// Sparse matrix generation (unchanged)
-// ==============================
+
+// Sparse matrix generation 
 void generate_matrix(double* A, int rows, int cols, double density) {
     for (int i = 0; i < rows * cols; i++) {
         if ((double)rand() / RAND_MAX < density) {
@@ -159,28 +149,24 @@ void generate_matrix(double* A, int rows, int cols, double density) {
     }
 }
 
-// ==============================
 // Robust relative error check
-// ==============================
 int check(double* a, double* b, int n) {
     for (int i = 0; i < n; i++) {
         double diff = fabs(a[i] - b[i]);
-        double rel_tol = TOL * fmax(1.0, fabs(b[i]));   // scaled tolerance
+        double rel_tol = TOL * fmax(1.0, fabs(b[i]));   
         if (diff > rel_tol) return 0;
     }
     return 1;
 }
 
-// ==============================
-// MAIN
-// ==============================
+
 int main() {
     srand(42);
 
     int rows = 1000;
     int cols = 1000;
 
-    // Allocate matrices and vectors
+
     double* A = malloc(rows * cols * sizeof(double));
     double* x = malloc(cols * sizeof(double));
 
@@ -207,32 +193,31 @@ int main() {
         int nnz;
         dense_to_csr(rows, cols, A, values, col_idx, row_ptr, &nnz);
 
-        // ---- Naive dense ----
+        
         double t1 = get_time();
         for (int r = 0; r < REPEAT; r++)
             dense_multiply(rows, cols, A, x, y_dense);
         double t2 = get_time();
 
-        // ---- AVX2 dense ----
+        
         double t1a = get_time();
         for (int r = 0; r < REPEAT; r++)
             dense_multiply_avx2(rows, cols, A, x, y_avx2);
         double t2a = get_time();
 
-        // ---- CSR baseline ----
+        
         double t3 = get_time();
         for (int r = 0; r < REPEAT; r++)
             csr_multiply(rows, values, col_idx, row_ptr, x, y_csr);
         double t4 = get_time();
 
-        // ---- CSR 2-way unrolled ----
+        
         double t5 = get_time();
         for (int r = 0; r < REPEAT; r++)
             csr_multiply_optimized(rows, values, col_idx, row_ptr, x, y_opt);
         double t6 = get_time();
 
-        // ===== Correctness checks =====
-        // All implementations must match the naive dense result
+    
         if (!check(y_dense, y_avx2, rows) ||
             !check(y_dense, y_csr, rows)  ||
             !check(y_dense, y_opt, rows)) {
@@ -245,7 +230,7 @@ int main() {
         double csr_t    = (t4 - t3)   / REPEAT;
         double opt_t    = (t6 - t5)   / REPEAT;
 
-        double speedup_avx2_csr = avx2_t / csr_t;   // >1 means CSR faster than AVX2
+        double speedup_avx2_csr = avx2_t / csr_t;   
 
         printf("%6.2f | %6d | %9.6f | %8.6f | %8.6f | %12.2fx\n",
                density, nnz, dense_t, avx2_t, csr_t, 1.0/speedup_avx2_csr);
